@@ -1,0 +1,13 @@
+{
+  "name": "ai-builders-digest",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI Builders Digest - Daily summary of top AI builders' insights",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "openai": "^4.28.0"
+  }
+}
