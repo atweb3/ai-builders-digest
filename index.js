@@ -4,7 +4,8 @@
 // 使用免费 Groq API，无需 API Key
 // 收集AI builders的最新内容，生成摘要，推送到飞书
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import('fs').then(fs => {
+const { readFileSync, writeFileSync, existsSync } = fs;
 
 // 配置
 const FEED_X_URL = 'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-x.json';
