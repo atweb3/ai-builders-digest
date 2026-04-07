@@ -1,0 +1,25 @@
+name: AI Builders Digest
+
+on:
+  schedule:
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node index.js
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+      - if: success()
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "Bot"
+          git add state-feed.json
+          git diff --cached --quiet || git commit -m "Update"
+          git push || echo "No changes"
