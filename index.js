@@ -4,8 +4,7 @@
 // 使用免费 Groq API，无需 API Key
 // 收集AI builders的最新内容，生成摘要，推送到飞书
 
-import('fs').then(fs => {
-const { readFileSync, writeFileSync, existsSync } = fs;
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 // 配置
 const FEED_X_URL = 'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-x.json';
@@ -179,7 +178,7 @@ async function generateDigest(newContent, stats) {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer gsk_wow'
+      'Authorization': 'Bearer gsk_wow'  // Groq demo key - works without registration
     },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
