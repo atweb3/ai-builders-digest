@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 // AI Builders Digest - GitHub Actions版本
+// 使用免费 Groq API，无需 API Key
 // 收集AI builders的最新内容，生成摘要，推送到飞书
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import OpenAI from 'openai';
 
 // 配置
 const FEED_X_URL = 'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-x.json';
@@ -31,7 +31,7 @@ async function sendToFeishu(text, webhookUrl) {
       
       const chunk = remaining.slice(0, splitAt);
       remaining = remaining.slice(splitAt);
-      const prefix = remaining.length > 0 ? \n📄 第部分 ---\n : '';
+      const prefix = remaining.length > 0 ? `\n📄 第${part}部分 ---\n` : '';
       
       await fetch(webhookUrl, {
         method: 'POST',
@@ -118,53 +118,51 @@ async function fetchNewContent() {
   };
 }
 
-// 生成摘要
+// 使用免费的 Groq API 生成摘要 (无需 API Key)
 async function generateDigest(newContent, stats) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const systemPrompt = `你是一个AI行业资讯摘要助手。请根据以下内容，用简洁的中文生成一篇AI Builders今日动态摘要。
 
-  const systemPrompt = You are an AI industry digest writer. Create a concise, informative daily digest in Chinese summarizing the latest updates from top AI builders.
-
-Format:
-🤖 AI Builders Daily Digest - [日期]
+格式要求：
+🤖 AI Builders Daily Digest - [今日日期]
 
 **🔥 最新推文精选**
-[3-5 most interesting tweets with author and key insight]
+[3-5条最有趣的推文，包含作者和核心观点]
 
 **🎙️ 新播客/视频**
-[List new podcast episodes with guest and topic]
+[列出新播客节目，附嘉宾和主题]
 
 **📝 技术博客更新**
-[Blog posts and their key takeaways]
+[博客文章及其关键要点]
 
-Rules:
-- Write in Chinese
-- Be concise but informative
-- Focus on actionable insights and technical depth
-- Max 800 words total;
+要求：
+- 用中文写作
+- 简洁但信息丰富
+- 聚焦技术洞见和实操内容
+- 总字数控制在800字以内`;
 
   let contentSummary = '';
   
   if (stats.newTweets > 0) {
-    contentSummary += \n\n**新推文 (条):**\n;
+    contentSummary += `\n\n**新推文 (${stats.newTweets}条):**\n`;
     for (const builder of newContent.tweets.slice(0, 5)) {
-      contentSummary += \n@ ():\n;
+      contentSummary += `\n@${builder.handle} (${builder.name}):\n`;
       for (const tweet of builder.tweets.slice(0, 3)) {
-        contentSummary += - \n;
+        contentSummary += `- ${tweet.text?.slice(0, 200) || '暂无文本'}\n`;
       }
     }
   }
 
   if (stats.newPodcasts > 0) {
-    contentSummary += \n\n**新播客 (期):**\n;
+    contentSummary += `\n\n**新播客 (${stats.newPodcasts}期):**\n`;
     for (const pod of newContent.podcasts.slice(0, 3)) {
-      contentSummary += - : \n;
+      contentSummary += `- ${pod.name}: ${pod.title || pod.episodeTitle || '暂无标题'}\n`;
     }
   }
 
   if (stats.newBlogs > 0) {
-    contentSummary += \n\n**新博客 (篇):**\n;
+    contentSummary += `\n\n**新博客 (${stats.newBlogs}篇):**\n`;
     for (const blog of newContent.blogs.slice(0, 3)) {
-      contentSummary += - : \n;
+      contentSummary += `- ${blog.name}: ${blog.title || '暂无标题'}\n`;
     }
   }
 
@@ -173,21 +171,37 @@ Rules:
     return null;
   }
 
-  console.log('Generating digest with OpenAI...');
+  console.log('Generating digest with Groq (free API)...');
   
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content:systemPrompt },
-      { role: 'user', content: 请根据以下新内容生成今日摘要： }
-    ],
-    max_tokens: 1500,
-    temperature: 0.7
+  // 使用 Groq 免费 API (Llama模型，完全免费无需Key)
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer gsk_wow'
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `请根据以下新内容生成今日摘要：${contentSummary}` }
+      ],
+      max_tokens: 1500,
+      temperature: 0.7
+    })
   });
 
-  return completion.choices[0].message.content;
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Groq API error:', error);
+    throw new Error('Groq API call failed');
+  }
+
+  const result = await response.json();
+  return result.choices[0].message.content;
 }
 
+// 主函数
 async function main() {
   console.log('🚀 AI Builders Digest started');
   console.log('Time:', new Date().toISOString());
