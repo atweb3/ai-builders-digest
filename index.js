@@ -118,87 +118,55 @@ async function fetchNewContent() {
   };
 }
 
-// 使用免费的 Groq API 生成摘要 (无需 API Key)
-async function generateDigest(newContent, stats) {
-  const systemPrompt = `你是一个AI行业资讯摘要助手。请根据以下内容，用简洁的中文生成一篇AI Builders今日动态摘要。
-
-格式要求：
-🤖 AI Builders Daily Digest - [今日日期]
-
-**🔥 最新推文精选**
-[3-5条最有趣的推文，包含作者和核心观点]
-
-**🎙️ 新播客/视频**
-[列出新播客节目，附嘉宾和主题]
-
-**📝 技术博客更新**
-[博客文章及其关键要点]
-
-要求：
-- 用中文写作
-- 简洁但信息丰富
-- 聚焦技术洞见和实操内容
-- 总字数控制在800字以内`;
-
-  let contentSummary = '';
+// 生成摘要 - 纯本地格式化，无需API Key
+function generateDigest(newContent, stats) {
+  const today = new Date().toLocaleDateString('zh-CN', { 
+    year: 'numeric', month: 'long', day: 'numeric' 
+  });
   
+  let digest = `🤖 AI Builders Daily Digest - ${today}\n\n`;
+
   if (stats.newTweets > 0) {
-    contentSummary += `\n\n**新推文 (${stats.newTweets}条):**\n`;
+    digest += `**🔥 最新推文精选 (${stats.newTweets}条)**\n\n`;
     for (const builder of newContent.tweets.slice(0, 5)) {
-      contentSummary += `\n@${builder.handle} (${builder.name}):\n`;
-      for (const tweet of builder.tweets.slice(0, 3)) {
-        contentSummary += `- ${tweet.text?.slice(0, 200) || '暂无文本'}\n`;
+      digest += `📱 @${builder.handle}\n`;
+      for (const tweet of builder.tweets.slice(0, 2)) {
+        const text = tweet.text?.slice(0, 280) || '暂无文本';
+        digest += `   "${text}"\n`;
       }
+      digest += '\n';
     }
   }
 
   if (stats.newPodcasts > 0) {
-    contentSummary += `\n\n**新播客 (${stats.newPodcasts}期):**\n`;
+    digest += `**🎙️ 新播客/视频 (${stats.newPodcasts}期)**\n\n`;
     for (const pod of newContent.podcasts.slice(0, 3)) {
-      contentSummary += `- ${pod.name}: ${pod.title || pod.episodeTitle || '暂无标题'}\n`;
+      digest += `🎧 ${pod.name}\n`;
+      digest += `   ${pod.title || pod.episodeTitle || '暂无标题'}\n`;
+      if (pod.url) digest += `   🔗 ${pod.url}\n`;
+      digest += '\n';
     }
   }
 
   if (stats.newBlogs > 0) {
-    contentSummary += `\n\n**新博客 (${stats.newBlogs}篇):**\n`;
+    digest += `**📝 技术博客更新 (${stats.newBlogs}篇)**\n\n`;
     for (const blog of newContent.blogs.slice(0, 3)) {
-      contentSummary += `- ${blog.name}: ${blog.title || '暂无标题'}\n`;
+      digest += `📄 ${blog.name}\n`;
+      digest += `   ${blog.title || '暂无标题'}\n`;
+      digest += '\n';
     }
   }
 
-  if (contentSummary.trim() === '') {
+  digest += '---\n';
+  digest += `📊 今日统计: ${stats.newTweets}条推文 | ${stats.newPodcasts}期播客 | ${stats.newBlogs}篇博客\n`;
+  digest += `🔗 数据来源: follow-builders`;
+
+  if (digest.trim() === `🤖 AI Builders Daily Digest - ${today}\n\n---\n📊 今日统计:`) {
     console.log('No new content today, skipping digest.');
     return null;
   }
 
-  console.log('Generating digest with Groq (free API)...');
-  
-  // 使用 Groq 免费 API (Llama模型，完全免费无需Key)
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer gsk_wow'  // Groq demo key - works without registration
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `请根据以下新内容生成今日摘要：${contentSummary}` }
-      ],
-      max_tokens: 1500,
-      temperature: 0.7
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Groq API error:', error);
-    throw new Error('Groq API call failed');
-  }
-
-  const result = await response.json();
-  return result.choices[0].message.content;
+  return digest;
 }
 
 // 主函数
