@@ -2,9 +2,9 @@ const fs = require('fs');
 const https = require('https');
 
 const FEEDS = [
-  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/src/feed/builder.json',
-  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/src/feed/x.json',
-  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/src/feed/engineering.json'
+  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-x.json',
+  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-podcasts.json',
+  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-blogs.json'
 ];
 
 let state = {};
@@ -35,8 +35,8 @@ async function sendToFeishu(title, items) {
         zh_cn: {
           title: title,
           content: items.map(item => [
-            [{ tag: 'text', text: `• ${item.title || item.name || '未命名'}` }],
-            [{ tag: 'a', text: '链接', href: item.url || item.link || '#' }],
+            [{ tag: 'text', text: '> ' + (item.title || item.name || '未知') }],
+            [{ tag: 'a', text: '查看链接', href: item.url || item.link || '#' }],
             [{ tag: 'text', text: '\n' }]
           ]).flat()
         }
@@ -45,10 +45,10 @@ async function sendToFeishu(title, items) {
   };
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(content);
-    const url = new URL(webhook);
+    const u = new URL(webhook);
     const req = https.request({
-      hostname: url.hostname,
-      path: url.pathname,
+      hostname: u.hostname,
+      path: u.pathname,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     }, (res) => { res.resume(); resolve(); });
@@ -69,7 +69,7 @@ async function sendToFeishu(title, items) {
         return id && !state[id];
       });
       if (newItems.length) {
-        await sendToFeishu(`${name} 更新 (${newItems.length}条)`, newItems);
+        await sendToFeishu(${name} 更新 (条), newItems);
         newItems.forEach(item => {
           const id = item.id || item.url || item.link;
           state[id] = { time: new Date().toISOString() };
