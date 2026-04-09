@@ -1,11 +1,11 @@
 {
   "name": "ai-builders-digest",
   "version": "1.0.0",
-  "type": "module",
-  "description": "AI Builders Digest - Daily summary using free Groq API",
+  "description": "Daily digest from follow-builders to Feishu",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "dependencies": {}
+  "author": "",
+  "license": "MIT"
 }
