@@ -69,7 +69,7 @@ async function sendToFeishu(title, items) {
         return id && !state[id];
       });
       if (newItems.length) {
-        await sendToFeishu(name + ' Updates (' + newItems.length + ')', newItems);
+        await sendToFeishu('AI Builders Digest Daily - ' + name + ' Updates (' + newItems.length + ')', newItems);
         newItems.forEach(item => {
           const id = item.id || item.url || item.link;
           state[id] = { time: new Date().toISOString() };
