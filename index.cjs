@@ -35,8 +35,8 @@ async function sendToFeishu(title, items) {
         zh_cn: {
           title: title,
           content: items.map(item => [
-            [{ tag: 'text', text: '> ' + (item.title || item.name || '未知') }],
-            [{ tag: 'a', text: '查看链接', href: item.url || item.link || '#' }],
+            [{ tag: 'text', text: '> ' + (item.title || item.name || 'unknown') }],
+            [{ tag: 'a', text: 'Link', href: item.url || item.link || '#' }],
             [{ tag: 'text', text: '\n' }]
           ]).flat()
         }
@@ -69,7 +69,7 @@ async function sendToFeishu(title, items) {
         return id && !state[id];
       });
       if (newItems.length) {
-        await sendToFeishu(${name} 更新 (条), newItems);
+        await sendToFeishu(name + ' Updates (' + newItems.length + ')', newItems);
         newItems.forEach(item => {
           const id = item.id || item.url || item.link;
           state[id] = { time: new Date().toISOString() };
