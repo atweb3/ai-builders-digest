@@ -2,70 +2,80 @@ const fs = require('fs');
 const https = require('https');
 
 const FEEDS = [
-  {url: 'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-x.json', name: 'X'},
-  {url: 'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-podcasts.json', name: 'Podcasts'},
-  {url: 'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-blogs.json', name: 'Blogs'}
+  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/src/feed/builder.json',
+  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/src/feed/x.json',
+  'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/src/feed/engineering.json'
 ];
 
-let state = new Map();
-if (fs.existsSync('./s.json')) {
-  JSON.parse(fs.readFileSync('./s.json','utf8')).forEach((v,k) => state.set(k,v));
+let state = {};
+if (fs.existsSync('./state-feed.json')) {
+  try { state = JSON.parse(fs.readFileSync('./state-feed.json')); } catch(e) {}
 }
 
-function fetch(url) {
-  return new Promise((ok, no) => {
-    https.get(url, res => {
-      if (res.statusCode !== 200) { no(new Error(res.statusCode)); return; }
-      let d = '';
-      res.on('data', c => d += c);
-      res.on('end', () => { try { ok(JSON.parse(d)); } catch(e) { no(e); } });
-    }).on('error', no);
+async function fetchJSON(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch(e) { reject(e); }
+      });
+    }).on('error', reject);
   });
 }
 
-function getId(i) { return i.id || i.url || JSON.stringify(i).slice(0,50); }
-function getTitle(i) { return i.title || i.name || i.handle || ''; }
-
-async function sendFeishu(title, items) {
-  if (!items || !items.length) return;
-  const wh = process.env.FEISHU_WEBHOOK_URL;
-  if (!wh) return;
-  const body = {
+async function sendToFeishu(title, items) {
+  if (!items.length) return;
+  const webhook = process.env.FEISHU_WEBHOOK_URL;
+  if (!webhook) return;
+  const content = {
     msg_type: 'post',
-    content: { post: { zh_cn: { title, content: items.map(i => [[{tag:'text', text:'* ' + getTitle(i)}]]) } } }
+    content: {
+      post: {
+        zh_cn: {
+          title: title,
+          content: items.map(item => [
+            [{ tag: 'text', text: `• ${item.title || item.name || '未命名'}` }],
+            [{ tag: 'a', text: '链接', href: item.url || item.link || '#' }],
+            [{ tag: 'text', text: '\n' }]
+          ]).flat()
+        }
+      }
+    }
   };
-  return new Promise(ok => {
-    const u = new URL(wh);
-    const req = https.request({hostname: u.hostname, path: u.pathname, method:'POST', headers:{'Content-Type':'application/json'}}, res => {
-      let d=''; res.on('data',c=>d+=c); res.on('end',()=>ok(res.statusCode===200));
-    });
-    req.on('error', () => ok(false));
-    req.write(JSON.stringify(body)); req.end();
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(content);
+    const url = new URL(webhook);
+    const req = https.request({
+      hostname: url.hostname,
+      path: url.pathname,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }, (res) => { res.resume(); resolve(); });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
   });
 }
 
-async function main() {
-  let total = 0;
-  for (const f of FEEDS) {
-    console.log('Processing:', f.name);
+(async () => {
+  for (const feed of FEEDS) {
+    const name = feed.split('/').pop().replace('.json', '');
     try {
-      const d = await fetch(f.url);
-      let items = [];
-      if (d.x) items = d.x.flatMap(b => (b.tweets||[]).map(t => ({id: t.id, title: '@'+b.handle+': '+(t.text||'').slice(0,100)})));
-      else if (d.podcasts) items = d.podcasts;
-      else if (d.blogs) items = d.blogs;
-      else if (Array.isArray(d)) items = d;
-      const newItems = items.filter(i => !state.has(getId(i)));
+      const data = await fetchJSON(feed);
+      const items = Array.isArray(data) ? data : (data.items || []);
+      const newItems = items.filter(item => {
+        const id = item.id || item.url || item.link;
+        return id && !state[id];
+      });
       if (newItems.length) {
-        console.log('New:', newItems.length);
-        const ok = await sendFeishu(f.name+' Updates ('+newItems.length+')', newItems);
-        if (ok) { newItems.forEach(i => state.set(getId(i), 1)); total += newItems.length; }
-      } else console.log('No new');
-      await new Promise(r => setTimeout(r, 500));
-    } catch(e) { console.error('Error:', e.message); }
+        await sendToFeishu(`${name} 更新 (${newItems.length}条)`, newItems);
+        newItems.forEach(item => {
+          const id = item.id || item.url || item.link;
+          state[id] = { time: new Date().toISOString() };
+        });
+      }
+    } catch(e) { console.error(name, e.message); }
   }
-  fs.writeFileSync('./s.json', JSON.stringify(Object.fromEntries(state)));
-  console.log('Done. Total:', total);
-}
-
-main().catch(e => { console.error(e); process.exit(1); });
+  fs.writeFileSync('./state-feed.json', JSON.stringify(state, null, 2));
+})();
