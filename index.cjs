@@ -84,7 +84,6 @@ function sendToFeishu(title, items) {
       if (Array.isArray(data)) {
         items = data;
       } else if (data.x) {
-        // feed-x.json: { x: [{ tweets: [...] }, ...] }
         items = data.x.flatMap(b => (b.tweets || []).map(t => ({
           id: t.id,
           text: '@' + b.handle + ': ' + (t.text || '').slice(0, 100),
@@ -98,7 +97,7 @@ function sendToFeishu(title, items) {
         }));
       } else if (data.blogs) {
         items = data.blogs.map(b => ({
-          id: b.url || b.title,
+          id: b.title || b.url,
           title: b.title,
           url: b.url
         }));
