@@ -1,4 +1,4 @@
-const { describe, it, mock, beforeEach } = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert');
 describe('Feed Parsing', () => {
   it('should parse feed-x.json structure correctly', () => {
@@ -8,6 +8,15 @@ describe('Feed Parsing', () => {
     const items = data.x.flatMap(b => (b.tweets || []).map(t => ({ id: t.id, text: '@' + b.handle + ': ' + (t.text || '').slice(0, 100), url: t.url })));
     assert.strictEqual(items.length, 1);
     assert.strictEqual(items[0].id, '123');
+  });
+  it('should tolerate builders without tweets arrays', () => {
+    const data = {
+      x: [{ handle: 'empty-builder' }, { handle: 'with-tweet', tweets: [{ id: '1', text: 'hello' }] }]
+    };
+    const items = data.x.flatMap(b => (b.tweets || []).map(t => ({ id: t.id, text: '@' + b.handle + ': ' + (t.text || '').slice(0, 100), url: t.url })));
+    const totalTweets = data.x.reduce((sum, a) => sum + ((a?.tweets || []).length), 0);
+    assert.strictEqual(items.length, 1);
+    assert.strictEqual(totalTweets, 1);
   });
   it('should use title as id fallback for blogs', () => {
     const data = { blogs: [{ title: 'Test Blog Post', url: null }, { title: 'Another Post', url: '' }] };
