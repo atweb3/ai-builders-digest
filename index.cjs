@@ -141,5 +141,4 @@ function sendToFeishu(title, items) {
   }
   fs.writeFileSync('./state-feed.json', JSON.stringify(state, null, 2));
   console.log('Done. Total tracked:', Object.keys(state).length);
-  
 })();
