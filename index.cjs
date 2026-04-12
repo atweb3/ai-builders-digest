@@ -52,15 +52,28 @@ function sendToFeishu(title, items) {
     const u = new URL(webhook);
     const req = https.request({
       hostname: u.hostname,
-      path: u.pathname,
+      path: `${u.pathname}${u.search}`,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
     }, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
-        console.log('Feishu response:', res.statusCode);
-        resolve(res.statusCode === 200);
+        let ok = res.statusCode === 200;
+        if (ok) {
+          try {
+            const parsed = JSON.parse(body || '{}');
+            ok = parsed.code === 0;
+            if (!ok) {
+              console.log('Feishu business error:', parsed.code, parsed.msg || parsed.message || 'unknown');
+            }
+          } catch (e) {
+            ok = false;
+            console.log('Feishu parse error:', e.message);
+          }
+        }
+        console.log('Feishu response:', res.statusCode, body.slice(0, 300));
+        resolve(ok);
       });
     });
     req.on('error', (e) => {
@@ -118,6 +131,8 @@ function sendToFeishu(title, items) {
             state[id] = { time: new Date().toISOString() };
           });
           console.log('Sent successfully!');
+        } else {
+          console.log('Failed to deliver to Feishu for feed:', name);
         }
       }
     } catch(e) {
@@ -126,4 +141,5 @@ function sendToFeishu(title, items) {
   }
   fs.writeFileSync('./state-feed.json', JSON.stringify(state, null, 2));
   console.log('Done. Total tracked:', Object.keys(state).length);
+  
 })();
