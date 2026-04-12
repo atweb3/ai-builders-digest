@@ -2,9 +2,10 @@
   "name": "ai-builders-digest",
   "version": "1.0.0",
   "description": "Daily digest from follow-builders to Feishu",
-  "main": "index.js",
+  "main": "index.cjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.cjs",
+    "test": "node --test tests/*.test.js"
   },
   "author": "",
   "license": "MIT"
