@@ -33,7 +33,6 @@ function sendToFeishu(title, items) {
       return;
     }
     if (!items.length) {
-      console.log('No items to send');
       resolve(false);
       return;
     }
@@ -45,7 +44,7 @@ function sendToFeishu(title, items) {
           zh_cn: {
             title: title,
             content: items.map(item => [
-              [{ tag: 'text', text: '> ' + (item.title || item.name || 'unknown') }],
+              [{ tag: 'text', text: '> ' + (item.text || item.title || item.name || 'unknown') }],
               [{ tag: 'a', text: 'Link', href: item.url || item.link || '#' }],
               [{ tag: 'text', text: '\n' }]
             ]).flat()
@@ -67,7 +66,7 @@ function sendToFeishu(title, items) {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
-        console.log('Feishu response:', res.statusCode, body);
+        console.log('Feishu response:', res.statusCode);
         resolve(res.statusCode === 200);
       });
     });
@@ -89,7 +88,34 @@ function sendToFeishu(title, items) {
     console.log('Processing:', name);
     try {
       const data = await fetchJSON(feed);
-      const items = Array.isArray(data) ? data : (data.items || []);
+      
+      // 淇锛氭敮鎸佸绉岼SON缁撴瀯
+      let items = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data.x) {
+        // feed-x.json: { x: [{ tweets: [...] }, ...] }
+        items = data.x.flatMap(b => (b.tweets || []).map(t => ({
+          id: t.id,
+          text: '@' + b.handle + ': ' + (t.text || '').slice(0, 100),
+          url: t.url
+        })));
+      } else if (data.podcasts) {
+        items = data.podcasts.map(p => ({
+          id: p.url || p.title,
+          title: p.title,
+          url: p.url
+        }));
+      } else if (data.blogs) {
+        items = data.blogs.map(b => ({
+          id: b.url || b.title,
+          title: b.title,
+          url: b.url
+        }));
+      } else if (data.items) {
+        items = data.items;
+      }
+      
       console.log('Found items:', items.length);
       
       const newItems = items.filter(item => {
@@ -107,12 +133,10 @@ function sendToFeishu(title, items) {
             state[id] = { time: new Date().toISOString() };
           });
           console.log('Sent successfully!');
-        } else {
-          console.log('Send failed!');
         }
       }
     } catch(e) { 
-      console.log('Error processing', name, ':', e.message); 
+      console.log('Error:', e.message); 
     }
   }
   
