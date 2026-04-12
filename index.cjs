@@ -36,7 +36,7 @@ function sendToFeishu(title, items) {
       resolve(false);
       return;
     }
-    
+
     const content = {
       msg_type: 'post',
       content: {
@@ -52,10 +52,10 @@ function sendToFeishu(title, items) {
         }
       }
     };
-    
+
     const data = JSON.stringify(content);
     console.log('Sending to Feishu:', title, '- Items:', items.length);
-    
+
     const u = new URL(webhook);
     const req = https.request({
       hostname: u.hostname,
@@ -82,14 +82,14 @@ function sendToFeishu(title, items) {
 (async () => {
   console.log('Starting AI Builders Digest...');
   console.log('Current state entries:', Object.keys(state).length);
-  
+
   for (const feed of FEEDS) {
     const name = feed.split('/').pop().replace('.json', '');
     console.log('Processing:', name);
     try {
       const data = await fetchJSON(feed);
-      
-      // 淇锛氭敮鎸佸绉岼SON缁撴瀯
+
+      // Fix: support multi-layer JSON structures
       let items = [];
       if (Array.isArray(data)) {
         items = data;
@@ -107,24 +107,25 @@ function sendToFeishu(title, items) {
           url: p.url
         }));
       } else if (data.blogs) {
+        // Fix: use title as stable id fallback
         items = data.blogs.map(b => ({
-          id: b.url || b.title,
+          id: b.title || b.url,
           title: b.title,
           url: b.url
         }));
       } else if (data.items) {
         items = data.items;
       }
-      
+
       console.log('Found items:', items.length);
-      
+
       const newItems = items.filter(item => {
         const id = item.id || item.url || item.link;
         return id && !state[id];
       });
-      
+
       console.log('New items:', newItems.length);
-      
+
       if (newItems.length) {
         const sent = await sendToFeishu('AI Builders Digest Daily - ' + name + ' Updates (' + newItems.length + ')', newItems);
         if (sent) {
@@ -135,11 +136,11 @@ function sendToFeishu(title, items) {
           console.log('Sent successfully!');
         }
       }
-    } catch(e) { 
-      console.log('Error:', e.message); 
+    } catch(e) {
+      console.log('Error:', e.message);
     }
   }
-  
+
   fs.writeFileSync('./state-feed.json', JSON.stringify(state, null, 2));
   console.log('Done. Total tracked:', Object.keys(state).length);
 })();
