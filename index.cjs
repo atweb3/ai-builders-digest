@@ -1,17 +1,14 @@
 const fs = require('fs');
 const https = require('https');
-
 const FEEDS = [
   'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-x.json',
   'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-podcasts.json',
   'https://raw.githubusercontent.com/zarazhangrui/follow-builders/main/feed-blogs.json'
 ];
-
 let state = {};
 if (fs.existsSync('./state-feed.json')) {
   try { state = JSON.parse(fs.readFileSync('./state-feed.json')); } catch(e) {}
 }
-
 async function fetchJSON(url) {
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
@@ -23,7 +20,6 @@ async function fetchJSON(url) {
     }).on('error', reject);
   });
 }
-
 function sendToFeishu(title, items) {
   return new Promise((resolve, reject) => {
     const webhook = process.env.FEISHU_WEBHOOK_URL;
@@ -36,7 +32,6 @@ function sendToFeishu(title, items) {
       resolve(false);
       return;
     }
-
     const content = {
       msg_type: 'post',
       content: {
@@ -52,10 +47,8 @@ function sendToFeishu(title, items) {
         }
       }
     };
-
     const data = JSON.stringify(content);
     console.log('Sending to Feishu:', title, '- Items:', items.length);
-
     const u = new URL(webhook);
     const req = https.request({
       hostname: u.hostname,
@@ -78,18 +71,15 @@ function sendToFeishu(title, items) {
     req.end();
   });
 }
-
 (async () => {
   console.log('Starting AI Builders Digest...');
   console.log('Current state entries:', Object.keys(state).length);
-
   for (const feed of FEEDS) {
     const name = feed.split('/').pop().replace('.json', '');
     console.log('Processing:', name);
     try {
       const data = await fetchJSON(feed);
-
-      // Fix: support multi-layer JSON structures
+      // 修复：兼容多种 JSON 结构
       let items = [];
       if (Array.isArray(data)) {
         items = data;
@@ -107,25 +97,20 @@ function sendToFeishu(title, items) {
           url: p.url
         }));
       } else if (data.blogs) {
-        // Fix: use title as stable id fallback
         items = data.blogs.map(b => ({
-          id: b.title || b.url,
+          id: b.url || b.title,
           title: b.title,
           url: b.url
         }));
       } else if (data.items) {
         items = data.items;
       }
-
       console.log('Found items:', items.length);
-
       const newItems = items.filter(item => {
         const id = item.id || item.url || item.link;
         return id && !state[id];
       });
-
       console.log('New items:', newItems.length);
-
       if (newItems.length) {
         const sent = await sendToFeishu('AI Builders Digest Daily - ' + name + ' Updates (' + newItems.length + ')', newItems);
         if (sent) {
@@ -140,7 +125,6 @@ function sendToFeishu(title, items) {
       console.log('Error:', e.message);
     }
   }
-
   fs.writeFileSync('./state-feed.json', JSON.stringify(state, null, 2));
   console.log('Done. Total tracked:', Object.keys(state).length);
 })();
